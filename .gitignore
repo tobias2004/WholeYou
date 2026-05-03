@@ -1,0 +1,9 @@
+backend/.venv/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+*.tsbuildinfo
+.wholeyou-*.pid
