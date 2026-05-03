@@ -4,3 +4,9 @@ httpx
 python-dotenv
 pydantic
 itsdangerous
+python-multipart
+fhir.resources
+openai
+datasets
+transformers
+torch

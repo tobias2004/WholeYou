@@ -4,7 +4,9 @@ export function Header() {
       <a href="/" className="brand">
         WholeYou
       </a>
-      <span>Epic/MyChart sandbox</span>
+      <nav className="navLinks" aria-label="Primary">
+        <a href="/logs">Logs</a>
+      </nav>
     </header>
   );
 }

@@ -1,6 +1,7 @@
 import unittest
 
-from normalize import (
+from integrations.epic.normalize import (
+    build_clinical_summary,
     normalize_condition,
     normalize_medication_request,
     normalize_observation,
@@ -50,13 +51,13 @@ class NormalizeTests(unittest.TestCase):
             {
                 "id": "obs-1",
                 "name": "Hemoglobin A1c",
+                "code": "4548-4",
                 "value": 6.4,
                 "unit": "%",
-                "date": "2026-04-01",
-                "status": "final",
-                "code": "4548-4",
-                "codeSystem": "http://loinc.org",
-                "flag": "high",
+                "referenceRange": None,
+                "interpretation": "high",
+                "effectiveDateTime": "2026-04-01",
+                "source": "epic",
             },
         )
 
@@ -91,7 +92,8 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(result["name"], "Blood Pressure")
         self.assertEqual(result["value"], "120/80")
         self.assertEqual(result["unit"], "mmHg")
-        self.assertEqual(result["date"], "2026-04-01T10:00:00Z")
+        self.assertEqual(result["effectiveDateTime"], "2026-04-01T10:00:00Z")
+        self.assertEqual(result["source"], "epic")
 
     def test_normalize_condition_uses_status_codes_and_onset(self):
         condition = {
@@ -107,9 +109,11 @@ class NormalizeTests(unittest.TestCase):
             {
                 "id": "cond-1",
                 "name": "Type 2 diabetes mellitus",
+                "code": None,
                 "clinicalStatus": "active",
                 "verificationStatus": "confirmed",
-                "onsetDate": "2020-01-01",
+                "recordedDate": "2020-01-01",
+                "source": "epic",
             },
         )
 
@@ -131,11 +135,27 @@ class NormalizeTests(unittest.TestCase):
                 "id": "med-1",
                 "name": "Metformin 500 MG Oral Tablet",
                 "status": "active",
-                "intent": "order",
-                "authoredOn": "2026-03-01",
                 "dosageText": "Take 1 tablet by mouth twice daily",
+                "authoredOn": "2026-03-01",
+                "source": "epic",
             },
         )
+
+    def test_build_clinical_summary_returns_generated_at_and_core_lists(self):
+        summary = build_clinical_summary(
+            labs=[],
+            vitals=[],
+            conditions=[],
+            medications=[],
+            encounters=[],
+        )
+
+        self.assertEqual(summary["conditions"], [])
+        self.assertEqual(summary["medications"], [])
+        self.assertEqual(summary["labs"], [])
+        self.assertEqual(summary["vitals"], [])
+        self.assertEqual(summary["encounters"], [])
+        self.assertIn("generatedAt", summary)
 
 
 if __name__ == "__main__":
