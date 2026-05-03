@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime
 
 from fastapi.testclient import TestClient
 
@@ -71,6 +72,50 @@ class LocalAiContextRoutesTests(unittest.TestCase):
         response = self.client.get("/api/local-ai/context/available")
 
         self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        epic = next(source for source in payload["sources"] if source["id"] == "epic")
+        open_wearables = next(
+            source for source in payload["sources"] if source["id"] == "openWearables"
+        )
+        epic_categories = {category["id"]: category for category in epic["categories"]}
+        self.assertEqual(
+            epic_categories["epic.patient"],
+            {
+                "id": "epic.patient",
+                "source": "epic",
+                "key": "patient",
+                "label": "Patient",
+                "available": True,
+                "recordCount": 1,
+            },
+        )
+        self.assertEqual(
+            epic_categories["epic.observations_labs"],
+            {
+                "id": "epic.observations_labs",
+                "source": "epic",
+                "key": "observations_labs",
+                "label": "Observations Labs",
+                "available": True,
+                "recordCount": 1,
+            },
+        )
+        heart_rate = next(
+            category
+            for category in open_wearables["categories"]
+            if category["id"] == "wearables.timeseries.heart_rate"
+        )
+        self.assertEqual(
+            heart_rate,
+            {
+                "id": "wearables.timeseries.heart_rate",
+                "source": "openWearables",
+                "key": "heartRate",
+                "label": "Heart Rate",
+                "available": True,
+                "recordCount": None,
+            },
+        )
         payload_text = response.text
         self.assertIn("epic.patient", payload_text)
         self.assertIn("epic.observations_labs", payload_text)
@@ -89,12 +134,14 @@ class LocalAiContextRoutesTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        selected = response.json()["selectedRawContext"]
+        payload = response.json()
+        selected = payload["selectedRawContext"]
         self.assertEqual(
             selected,
             {"epic": {"patient": {"resourceType": "Patient", "id": "patient-123"}}},
         )
         self.assertNotIn("observations_labs", selected["epic"])
+        datetime.fromisoformat(payload["generatedAt"])
 
     def test_raw_fetches_only_requested_wearable_category(self):
         response = self.client.post(
@@ -103,11 +150,13 @@ class LocalAiContextRoutesTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        selected = response.json()["selectedRawContext"]
+        payload = response.json()
+        selected = payload["selectedRawContext"]
         self.assertEqual(
             selected,
             {"openWearables": {"heartRate": [{"type": "heart_rate", "value": 64}]}},
         )
+        datetime.fromisoformat(payload["generatedAt"])
         self.assertEqual(
             self.fake_service.calls,
             [("get_timeseries", "local", {"type": "heart_rate", "limit": 12})],

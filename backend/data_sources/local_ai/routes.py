@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -12,7 +13,11 @@ router = APIRouter(prefix="/api/local-ai/context", tags=["local-ai-context"])
 
 class ContextCategory(BaseModel):
     id: str
+    source: str
+    key: str
     label: str
+    available: bool
+    recordCount: int | None
 
 
 class ContextSource(BaseModel):
@@ -31,6 +36,7 @@ class RawContextRequest(BaseModel):
 
 
 class RawContextResponse(BaseModel):
+    generatedAt: str
     selectedRawContext: dict[str, Any]
 
 
@@ -85,8 +91,15 @@ def _service() -> WearableDataService:
 async def available_context() -> AvailableContextResponse:
     compact_epic = _compact_epic_raw()
     epic_categories = [
-        ContextCategory(id=f"epic.{key}", label=_label_from_key(key))
-        for key in compact_epic.keys()
+        ContextCategory(
+            id=f"epic.{key}",
+            source="epic",
+            key=key,
+            label=_label_from_key(key),
+            available=True,
+            recordCount=_record_count(value),
+        )
+        for key, value in compact_epic.items()
     ]
 
     return AvailableContextResponse(
@@ -102,7 +115,14 @@ async def available_context() -> AvailableContextResponse:
                 label="Open Wearables",
                 connected=True,
                 categories=[
-                    ContextCategory(id=category.id, label=category.label)
+                    ContextCategory(
+                        id=category.id,
+                        source="openWearables",
+                        key=category.raw_key,
+                        label=category.label,
+                        available=True,
+                        recordCount=None,
+                    )
                     for category in WEARABLE_CATEGORIES
                 ],
             ),
@@ -135,7 +155,10 @@ async def selected_raw_context(request: RawContextRequest) -> RawContextResponse
             wearable_category.raw_key
         ] = await _fetch_wearable_category(service, category_id)
 
-    return RawContextResponse(selectedRawContext=selected)
+    return RawContextResponse(
+        generatedAt=datetime.now(timezone.utc).isoformat(),
+        selectedRawContext=selected,
+    )
 
 
 def _compact_epic_raw() -> dict[str, Any]:
@@ -186,3 +209,9 @@ def _raise_unknown_category(category_id: str) -> None:
 
 def _label_from_key(key: str) -> str:
     return key.replace("_", " ").title()
+
+
+def _record_count(value: Any) -> int:
+    if isinstance(value, list):
+        return len(value)
+    return 1
